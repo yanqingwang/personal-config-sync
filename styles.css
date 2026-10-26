@@ -1,0 +1,34 @@
+.obsidian-config-sync--wide {
+  width: 100% !important;
+  min-width: 280px;
+}
+
+.obsidian-config-sync--folder-list {
+  max-height: 240px;
+  overflow-y: auto;
+  margin: 8px 0;
+  padding: 4px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+}
+
+.obsidian-config-sync--folder-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  border-radius: 3px;
+  font-family: var(--font-monospace);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.obsidian-config-sync--folder-row:hover {
+  background: var(--background-modifier-hover);
+}
+
+.obsidian-config-sync--folder-row button {
+  margin-left: 8px;
+  padding: 2px 8px;
+  font-size: 11px;
+}

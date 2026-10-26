@@ -1,0 +1,25 @@
+{
+  "name": "obsidian-config-sync",
+  "version": "0.1.0",
+  "description": "Obsidian plugin: sync only the .obsidian config folder over WebDAV, independent of notes-content sync.",
+  "main": "main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc --noEmit && node esbuild.config.mjs production",
+    "typecheck": "tsc --noEmit",
+    "test:filter": "esbuild tests/filter.test.ts --bundle --format=cjs --platform=node --outfile=/tmp/filter-test.js --log-level=error && node /tmp/filter-test.js"
+  },
+  "keywords": ["obsidian", "webdav", "sync", "config"],
+  "author": "rosswang",
+  "license": "MIT",
+  "dependencies": {
+    "node-diff3": "^3.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "esbuild": "^0.20.0",
+    "obsidian": "latest",
+    "typescript": "^5.4.0"
+  }
+}

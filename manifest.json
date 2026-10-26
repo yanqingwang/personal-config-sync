@@ -1,0 +1,10 @@
+{
+  "id": "obsidian-config-sync",
+  "name": "Config Sync (WebDAV)",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "只同步 Obsidian 配置 (.obsidian/) 的 WebDAV 同步插件，独立于笔记内容同步。默认预填坚果云地址，默认全部配置同步，可按文件夹/文件/扩展名排除。",
+  "author": "rosswang",
+  "authorUrl": "",
+  "isDesktopOnly": false
+}
