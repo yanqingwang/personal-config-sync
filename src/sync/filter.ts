@@ -109,13 +109,16 @@ export function shouldSyncPath(
     excludeFolders: readonly string[];
     excludeFiles: readonly string[];
     excludeExtensions: readonly string[];
+    /** Plugin ids whose WHOLE folder is excluded: 'plugins/<id>/…' never syncs. */
+    excludePlugins?: readonly string[];
   },
 ): boolean {
   const base = path.split('/').pop() ?? '';
   const inExclude =
     matchesExcludedFile(path, opts.excludeFiles) ||
     matchesExcludedFolder(path, opts.excludeFolders) ||
-    isExcludedExtension(base, opts.excludeExtensions);
+    isExcludedExtension(base, opts.excludeExtensions) ||
+    isExcludedPlugin(path, opts.excludePlugins);
 
   if (opts.mode === 'exclude') {
     // Sync ONLY the excluded set (an "ignore the rest" escape hatch).
@@ -127,6 +130,17 @@ export function shouldSyncPath(
   }
   // 'all' — default: everything, minus exclusions.
   return !inExclude;
+}
+
+/** True when `path` lives inside an excluded plugin's folder, e.g. 'plugins/nextcloud-sync-yanc/…'. */
+function isExcludedPlugin(path: string, plugins: readonly string[] | undefined): boolean {
+  if (!plugins || plugins.length === 0) return false;
+  if (!path.startsWith('plugins/')) return false;
+  const rest = path.slice('plugins/'.length);
+  const slash = rest.indexOf('/');
+  if (slash < 0) return false; // it IS a plugin folder entry itself, not inside one
+  const pluginId = rest.slice(0, slash);
+  return plugins.includes(pluginId);
 }
 
 function isUnderAny(path: string, entries: readonly string[]): boolean {
@@ -147,9 +161,10 @@ export function effectiveRules(cfg: {
   mode: SyncMode;
   includeFolders: readonly string[];
   excludeFolders: readonly string[];
+  excludePlugins?: readonly string[];
   excludeFiles: readonly string[];
   excludeExtensions: readonly string[];
-}): { mode: SyncMode; include: string[]; excludeFolders: string[]; excludeFiles: string[]; excludeExtensions: string[] } {
+}): { mode: SyncMode; include: string[]; excludeFolders: string[]; excludeFiles: string[]; excludeExtensions: string[]; excludePlugins: string[] } {
   const excludeFiles = [...cfg.excludeFiles, ...DEFAULT_EXCLUDED_FILES];
   const excludeExtensions = [...cfg.excludeExtensions, ...DEFAULT_EXCLUDED_EXTENSIONS];
   return {
@@ -158,6 +173,7 @@ export function effectiveRules(cfg: {
     excludeFolders: [...cfg.excludeFolders],
     excludeFiles,
     excludeExtensions,
+    excludePlugins: [...(cfg.excludePlugins ?? [])],
   };
 }
 

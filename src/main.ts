@@ -6,11 +6,18 @@
 // Portions of the WebDAV client are reused from obsidian-nextcloud-sync-yanc (MIT) —
 // see src/webdav/StandardWebDAVClient.ts.
 
-import { Plugin, Notice, TAbstractFile, TFolder, TFile, debounce } from 'obsidian';
+import { Plugin, Notice, TAbstractFile, debounce } from 'obsidian';
 import { ConfigSyncSettingTab, DEFAULT_SETTINGS, defaultRemoteRoot, type ConfigSyncSettings } from './settings';
 import { StandardWebDAVClient } from './webdav/StandardWebDAVClient';
+import { checkReachability, checkWebdavBase, basicAuthHeader } from './webdav/ConnectionTester';
 import { runSync, type SyncReport } from './sync/engine';
 import { effectiveRules, type SyncMode } from './sync/filter';
+
+export interface ConnectionReport {
+  reachable: { ok: boolean; detail: string };
+  webdav: { ok: boolean; detail: string };
+  allOk: boolean;
+}
 
 export default class ObsidianConfigSyncPlugin extends Plugin {
   settings!: ConfigSyncSettings;
@@ -38,6 +45,18 @@ export default class ObsidianConfigSyncPlugin extends Plugin {
         void this.syncNow().then((r) => {
           new Notice(`配置同步完成：↑${r.uploaded} ↓${r.downloaded} 🗑${r.deleted} ⚡${r.conflicts}`);
         }).catch((e) => new Notice(`配置同步失败：${(e as Error).message}`, 8000));
+      },
+    });
+
+    this.addCommand({
+      id: 'test-config-connection',
+      name: '测试连接',
+      callback: () => {
+        void this.testConnection().then((r) => {
+          new Notice(r.allOk
+            ? `连接正常：${r.reachable.detail}；${r.webdav.detail}`
+            : `连接异常：${r.reachable.detail}；${r.webdav.detail}`, 8000);
+        });
       },
     });
 
@@ -112,6 +131,22 @@ export default class ObsidianConfigSyncPlugin extends Plugin {
   }
 
   /**
+   * Two-stage connection test (reused from nextcloud-sync-yanc's ConnectionTester, MIT).
+   * Runs BEFORE any sync so a network / credential / wrong-URL failure is diagnosed up front.
+   */
+  async testConnection(): Promise<ConnectionReport> {
+    const s = this.settings;
+    const timeoutMs = (s.networkTimeoutSeconds || 20) * 1000;
+    const auth = basicAuthHeader(s.username, s.password);
+    const reachable = await checkReachability(s.serverUrl, timeoutMs);
+    if (!reachable.ok) {
+      return { reachable, webdav: { ok: false, detail: 'skipped — server unreachable' }, allOk: false };
+    }
+    const webdav = await checkWebdavBase(s.serverUrl, auth, timeoutMs);
+    return { reachable, webdav, allOk: webdav.ok };
+  }
+
+  /**
    * Run a full config sync. Returns a report; throws on unrecoverable errors.
    * Never throws on NetworkError — that is captured in the report so the caller can decide.
    */
@@ -121,21 +156,34 @@ export default class ObsidianConfigSyncPlugin extends Plugin {
     }
     const s = this.settings;
     if (!s.serverUrl || !s.username || !s.password) {
-      this.settings.lastSyncStatus = '请先在设置里填写坚果云账号与应用密码';
+      this.settings.lastSyncStatus = '请先在设置里填写 WebDAV 账号与应用密码';
       await this.saveSettings();
       return { uploaded: 0, downloaded: 0, deleted: 0, conflicts: 0, skipped: 0, error: this.settings.lastSyncStatus, durationMs: 0 };
     }
 
     this.syncInProgress = true;
     try {
+      // Preflight: reachability first, then the WebDAV endpoint. Fail fast with a readable
+      // diagnosis rather than letting the sync itself return a cryptic per-file HTTP error.
+      const conn = await this.testConnection();
+      if (!conn.reachable.ok) {
+        this.settings.lastSyncStatus = `连接失败：${conn.reachable.detail}`;
+        await this.saveSettings();
+        return { uploaded: 0, downloaded: 0, deleted: 0, conflicts: 0, skipped: 0, error: this.settings.lastSyncStatus, durationMs: 0 };
+      }
+      if (!conn.webdav.ok) {
+        this.settings.lastSyncStatus = `WebDAV 异常：${conn.webdav.detail}`;
+        await this.saveSettings();
+        return { uploaded: 0, downloaded: 0, deleted: 0, conflicts: 0, skipped: 0, error: this.settings.lastSyncStatus, durationMs: 0 };
+      }
+
       const client = this.buildClient();
-      // Verify connectivity before scanning (fail fast with a readable error).
-      await client.connect();
 
       const rules = effectiveRules({
         mode: this.settings.syncMode as SyncMode,
         includeFolders: this.settings.includeFolders,
         excludeFolders: this.settings.excludeFolders,
+        excludePlugins: this.settings.excludePlugins ?? [],
         excludeFiles: this.settings.excludeFiles,
         excludeExtensions: this.settings.excludeExtensions,
       });

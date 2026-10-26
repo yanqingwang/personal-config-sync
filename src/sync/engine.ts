@@ -89,28 +89,44 @@ export async function runSync(opts: EngineOptions): Promise<SyncReport> {
   const prefix = configRoot + '/';
 
   // 1. Local scan.
+  // CRITICAL: the config root (.obsidian) is NOT part of Obsidian's vault file tree —
+  // vault.getAbstractFileByPath('.obsidian') returns null and would silently produce an empty
+  // local listing (the exact reason a first sync uploaded nothing). The DataAdapter CAN read
+  // it, so we walk it with adapter.list(), which returns vault-relative paths including .obsidian.
   const localEntries: LocalEntry[] = [];
   const localDirs = new Set<string>();
 
-  const listLocal = (dirPath: string, dir: import('obsidian').TFolder) => {
-    for (const child of dir.children) {
-      const rel = child.path;
-      if (!rel.startsWith(prefix)) continue;
-      const relUnder = rel.slice(prefix.length);
-      if (child instanceof TFile) {
-        if (!shouldSyncPath(relUnder, opts.rules)) continue;
-        const stat = child.stat;
-        localEntries.push({ path: relUnder, abs: rel, mtime: stat.mtime, size: stat.size });
-      } else if ('children' in child) {
-        localDirs.add(relUnder);
-        listLocal(child.path, child as import('obsidian').TFolder);
-      }
+  const walkDir = async (dirPath: string) => {
+    let listing;
+    try {
+      listing = await vault.adapter.list(dirPath);
+    } catch {
+      return; // folder does not exist locally — nothing to sync from here
+    }
+    for (const filePath of listing.files) {
+      if (!filePath.startsWith(prefix)) continue;
+      const relUnder = filePath.slice(prefix.length);
+      if (!shouldSyncPath(relUnder, opts.rules)) continue;
+      const stat = await vault.adapter.stat(filePath).catch(() => null);
+      localEntries.push({
+        path: relUnder,
+        abs: filePath,
+        mtime: stat?.mtime ?? Date.now(),
+        size: stat?.size ?? 0,
+      });
+    }
+    for (const folderPath of listing.folders) {
+      if (!folderPath.startsWith(prefix)) continue;
+      localDirs.add(folderPath.slice(prefix.length));
+      await walkDir(folderPath);
     }
   };
 
-  const configFolder = vault.getAbstractFileByPath(configRoot);
-  if (configFolder && 'children' in configFolder) {
-    listLocal(configRoot, configFolder as import('obsidian').TFolder);
+  try {
+    await vault.adapter.stat(configRoot);
+    await walkDir(configRoot);
+  } catch {
+    // .obsidian does not exist — nothing to sync.
   }
 
   // 2. Remote full scan.

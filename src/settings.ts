@@ -29,6 +29,8 @@ export interface ConfigSyncSettings {
   includeFolders: string[];
   /** Excluded folders (used in 'all' and 'whitelist' modes). */
   excludeFolders: string[];
+  /** Excluded PLUGINS (whole plugin folder). Checked against `.obsidian/plugins/<id>/`. */
+  excludePlugins: string[];
   /** Excluded file patterns (supports a single `*` wildcard). */
   excludeFiles: string[];
   /** Excluded extensions. */
@@ -54,6 +56,7 @@ export const DEFAULT_SETTINGS: ConfigSyncSettings = {
   syncMode: 'all',
   includeFolders: [],
   excludeFolders: [],
+  excludePlugins: [],
   excludeFiles: [],
   excludeExtensions: [],
 
@@ -226,6 +229,12 @@ export class ConfigSyncSettingTab extends PluginSettingTab {
         });
       });
 
+    // ── Excluded plugins: checkbox list of every installed plugin ──
+    el.createEl('div', { cls: 'setting-item', text: '' });
+    el.createEl('h4', { text: '排除的插件（勾选后整个插件文件夹都不同步）' });
+    const pluginList = el.createEl('div', { cls: 'obsidian-config-sync--plugin-list' });
+    void this.renderPluginList(pluginList);
+
     // Whitelist folder picker (only meaningful in 'whitelist' / 'exclude' modes).
     new Setting(el)
       .setName('白名单文件夹（同步范围内选中这些）')
@@ -276,6 +285,40 @@ export class ConfigSyncSettingTab extends PluginSettingTab {
       });
   }
 
+  /** Render a checkbox list of every installed plugin; toggling writes excludePlugins. */
+  private async renderPluginList(container: HTMLElement): Promise<void> {
+    container.empty();
+    let pluginIds: string[] = [];
+    try {
+      const listing = await this.app.vault.adapter.list('.obsidian/plugins');
+      pluginIds = listing.folders
+        .map((p) => p.split('/').pop() ?? '')
+        .filter((n) => n.length > 0 && n !== 'obsidian-config-sync')
+        .sort();
+    } catch {
+      pluginIds = [];
+    }
+    if (pluginIds.length === 0) {
+      container.createEl('p', { cls: 'setting-item-description', text: '未发现已安装插件。' });
+      return;
+    }
+    const current = new Set(this.plugin.settings.excludePlugins ?? []);
+    for (const id of pluginIds) {
+      const row = container.createEl('div', { cls: 'obsidian-config-sync--plugin-row' });
+      const cb = row.createEl('input', { type: 'checkbox' });
+      cb.checked = current.has(id);
+      row.createSpan({ text: id });
+      if (current.has(id)) row.addClass('is-excluded');
+      cb.addEventListener('change', async () => {
+        const set = new Set(this.plugin.settings.excludePlugins ?? []);
+        if (cb.checked) set.add(id); else set.delete(id);
+        this.plugin.settings.excludePlugins = [...set];
+        row.toggleClass('is-excluded', cb.checked);
+        await this.plugin.saveSettings();
+      });
+    }
+  }
+
   private renderActions(el: HTMLElement): void {
     el.createEl('h3', { text: '操作' });
 
@@ -293,6 +336,20 @@ export class ConfigSyncSettingTab extends PluginSettingTab {
             this.plugin.settings.lastSyncStatus = (e as Error).message;
             await this.plugin.saveSettings();
             this.display();
+          }
+        }),
+      );
+
+    new Setting(el)
+      .setName('测试连接')
+      .setDesc('先测服务器连通性 + WebDAV 端点认证，再同步。失败会给出具体原因（网络/认证/URL 错误）。')
+      .addButton((b) =>
+        b.setButtonText('测试连接').setCta().onClick(async () => {
+          const r = await this.plugin.testConnection();
+          if (r.allOk) {
+            new Notice(`✅ 连接正常：${r.reachable.detail}；${r.webdav.detail}`);
+          } else {
+            new Notice(`❌ 连接异常：${r.reachable.detail}；${r.webdav.detail}`, 10000);
           }
         }),
       );

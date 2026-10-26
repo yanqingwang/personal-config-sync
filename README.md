@@ -1,6 +1,8 @@
-# obsidian-config-sync
+# Plugin Sync (obsidian-config-sync)
 
 Obsidian 插件：**只同步 Obsidian 配置（`.obsidian/`）** 的 WebDAV 同步插件。
+
+> 插件名 **Plugin Sync**，id `obsidian-config-sync`。
 
 与笔记内容同步（如 [nextcloud-sync-yanc](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc)）完全独立：
 两个插件各自在远端占一个目录，互不越界 —— 内容线只管笔记，本插件只管配置。
@@ -9,6 +11,7 @@ Obsidian 插件：**只同步 Obsidian 配置（`.obsidian/`）** 的 WebDAV 同
 - 默认**全部配置同步**，但内置排除规则自动跳过设备本地文件。
 - 可按文件夹 / 文件 / 扩展名粒度配置排除，也可切到「白名单」只同步选中的文件夹。
 - 文本配置（json/md/css）冲突走 diff3 三方合并；非文本冲突保留双方副本。
+- **同步前自动做网络连通性测试**，失败即给出具体原因（网络 / 认证 / URL 错误），不盲目开同步。
 
 ## 安装（开发）
 
@@ -34,10 +37,12 @@ pnpm build          # 生成 main.js（esbuild 内联 node-diff3，无运行时�
 | **远端配置目录** | 默认 `<vault>-config`，独立于笔记内容目录 |
 | **自动同步间隔** | 0 = 仅手动/事件触发 |
 | **同步范围模式** | 全部（默认） / 白名单 / 反向 |
+| **排除的插件** | checkbox 列表勾选，勾选后整个插件文件夹都不同步 |
 | **排除文件夹** | 每行一个 |
 | **排除文件** | 每行一个，支持 `*` 通配 |
 | **排除文件类型** | 逗号分隔 |
 | **冲突策略** | 三方合并（默认） / 保留双方 / 本地优先 / 远端优先 |
+| **测试连接** | 按钮，先测连通性再决定是否同步 |
 
 密码只保存在本机 vault 的 `data.json`，**不会**被同步到远端（本插件的默认排除规则覆盖自身状态文件）。
 
