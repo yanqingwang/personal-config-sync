@@ -14,9 +14,10 @@
 // The engine never touches the notes content folder; it is rooted strictly at
 // {vault}/.obsidian → {remoteConfigRoot}.
 
-import { App, Vault, TFile } from 'obsidian';
+import { App, Vault } from 'obsidian';
+import { diff3Merge as nodeDiff3Merge } from 'node-diff3';
 import type { IWebDAVClient } from '../webdav/IWebDAVClient';
-import { NetworkError, RemoteRootMissingError, RemoteDirCreateError } from '../types';
+import { NetworkError, RemoteRootMissingError } from '../types';
 import { shouldSyncPath, effectiveRules } from './filter';
 
 export interface SyncReport {
@@ -132,7 +133,6 @@ export async function runSync(opts: EngineOptions): Promise<SyncReport> {
   // 2. Remote full scan.
   let remoteFiles: RemoteEntry[] = [];
   let remoteDirs: string[] = [];
-  let rootCreated = false;
   try {
     const files = await opts.client.getFiles(remoteRoot);
     const dirs = await opts.client.getDirectories(remoteRoot);
@@ -145,10 +145,10 @@ export async function runSync(opts: EngineOptions): Promise<SyncReport> {
     remoteDirs = dirs.map((d) => d.path.replace(remoteRoot + '/', ''));
   } catch (e) {
     if (e instanceof RemoteRootMissingError) {
-      const outcome = await opts.client.createVaultRoot();
-      rootCreated = outcome === 'created';
+      // The sync root does not exist yet — create it, then continue with an empty remote listing.
+      await opts.client.createVaultRoot();
     } else {
-      report.error = `远端扫描失败：${(e as Error).message}`;
+      report.error = `远端扫描失败：${e instanceof Error ? e.message : String(e)}`;
       report.durationMs = Date.now() - start;
       return report;
     }
@@ -322,21 +322,13 @@ async function resolveConflict(
 }
 
 // diff3 three-way merge (port of Diff3Strategy from nextcloud-sync-yanc, MIT).
-interface Diff3Chunk {
-  ok?: string[];
-  conflict?: { a: string[]; b: string[] };
-}
 
 function diff3Merge(local: string, base: string, remote: string): { mergedContent: string; hadConflicts: boolean } {
   const localLines = local.split('\n');
   const baseLines = base.split('\n');
   const remoteLines = remote.split('\n');
 
-  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires -- esbuild bundles this; never a runtime Node require.
-  const { diff3Merge } = require('node-diff3') as {
-    diff3Merge: (a: string[], o: string[], b: string[], opts?: Record<string, unknown>) => Diff3Chunk[];
-  };
-  const chunks = diff3Merge(localLines, baseLines, remoteLines, { excludeFalseConflicts: true });
+  const chunks = nodeDiff3Merge(localLines, baseLines, remoteLines, { excludeFalseConflicts: true });
 
   let mergedContent = '';
   let conflictRegions = 0;

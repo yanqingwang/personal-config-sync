@@ -6,7 +6,7 @@
 //
 // The server URL ships pre-filled with a sane WebDAV default so users only supply credentials.
 
-import { App, PluginSettingTab, Setting, Notice } from 'obsidian';
+import { App, PluginSettingTab, Setting, Notice, type SettingDefinitionItem } from 'obsidian';
 import type ObsidianConfigSyncPlugin from './main';
 
 /** Jianguoyun's WebDAV endpoint (a common plain-WebDAV target; Nextcloud URLs also work as-is). */
@@ -70,16 +70,55 @@ export class ConfigSyncSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl('h2', { text: 'Plugin Sync' });
 
-    this.renderConnection(containerEl);
-    this.renderPlugins(containerEl);
+    // Use the Setting heading API instead of raw <h2>/<h3> elements (Obsidian review requirement).
+    new Setting(containerEl).setName('Config Sync').setHeading();
+
+    void this.renderConnection(containerEl);
+    void this.renderPlugins(containerEl);
     this.renderConflict(containerEl);
     this.renderActions(containerEl);
   }
 
+  /**
+   * Declarative settings surface (Obsidian 1.13+). Without this, the tab's settings never appear in
+   * Obsidian's settings search. The rendered tab above stays the source of truth for the interactive
+   * controls (including the per-plugin checkbox list, which has no declarative equivalent).
+   */
+  getSettingDefinitions(): SettingDefinitionItem[] {
+    return [
+      { type: 'group', name: 'WebDAV connection', items: [
+        { name: 'Server address', desc: 'WebDAV endpoint. Default is Jianguoyun (https://dav.jianguoyun.com/dav/). For Nextcloud use https://<host>/remote.php/dav/files/<user>/', aliases: ['url', 'webdav', 'server'], control: { type: 'text', key: 'serverUrl', placeholder: 'https://dav.jianguoyun.com/dav/' } },
+        { name: 'Username', desc: 'Jianguoyun account (email) or Nextcloud username.', aliases: ['user', 'login'], control: { type: 'text', key: 'username' } },
+        { name: 'Password', desc: 'App password. Stored locally in data.json and never synced to the remote.', aliases: ['app password', 'credential'], control: { type: 'secret', key: 'password' } },
+        { name: 'Remote config folder', desc: 'Folder on the server that holds the configuration. Defaults to <vault>-config.', aliases: ['remote', 'directory', 'path'], control: { type: 'text', key: 'remoteConfigRoot' } },
+        { name: 'Auto-sync interval (minutes)', desc: '0 = manual / event-triggered only.', aliases: ['interval', 'schedule', 'timer'], control: { type: 'number', key: 'autoSyncIntervalMinutes', defaultValue: 0 } },
+        { name: 'Network timeout (seconds)', desc: 'Per-request timeout. 0 = unbounded.', aliases: ['timeout'], control: { type: 'number', key: 'networkTimeoutSeconds', defaultValue: 30 } },
+      ] },
+      { type: 'group', name: 'Sync scope', items: [
+        { name: 'Conflict strategy', desc: 'Three-way merge for text; keep-both saves both copies; local/remote-win overwrite.', aliases: ['merge', 'conflict'], control: { type: 'dropdown', key: 'conflictStrategy', options: {
+          merge: 'Three-way merge (recommended)',
+          'keep-both': 'Keep both copies',
+          'local-win': 'Local wins',
+          'remote-win': 'Remote wins',
+        } } },
+      ] },
+    ];
+  }
+
+  /** Read a declarative control's value from this plugin's settings. */
+  getControlValue(key: string): unknown {
+    return (this.plugin.settings as unknown as Record<string, unknown>)[key];
+  }
+
+  /** Persist a declarative control's value into this plugin's settings. */
+  async setControlValue(key: string, value: unknown): Promise<void> {
+    (this.plugin.settings as unknown as Record<string, unknown>)[key] = value;
+    await this.plugin.saveSettings();
+  }
+
   private renderConnection(el: HTMLElement): void {
-    el.createEl('h3', { text: 'WebDAV 连接' });
+    new Setting(el).setName('WebDAV 连接').setHeading();
     el.createEl('p', {
       cls: 'setting-item-description',
       text: '支持坚果云、Nextcloud 及任何标准 WebDAV 服务器。坚果云用户请填「应用密码」（坚果云网页 → 账户信息 → 安全选项 → 添加应用密码），不是登录密码。',
@@ -168,7 +207,7 @@ export class ConfigSyncSettingTab extends PluginSettingTab {
    * Tick = exclude that plugin's whole folder from sync. Unticked (default) = it syncs.
    */
   private async renderPlugins(el: HTMLElement): Promise<void> {
-    el.createEl('h3', { text: '同步范围（按插件）' });
+    new Setting(el).setName('同步范围（按插件）').setHeading();
     el.createEl('p', {
       cls: 'setting-item-description',
       text: '默认所有插件都同步。**勾选某个插件 = 整个插件文件夹都不同步**（包括它的 data.json、main.js、状态文件）。\n'
@@ -182,8 +221,10 @@ export class ConfigSyncSettingTab extends PluginSettingTab {
   private async renderPluginCheckboxes(container: HTMLElement): Promise<void> {
     container.empty();
     let pluginIds: string[] = [];
+    // Vault#configDir is configurable by the user — never hardcode '.obsidian'.
+    const pluginsDir = `${this.app.vault.configDir}/plugins`;
     try {
-      const listing = await this.app.vault.adapter.list('.obsidian/plugins');
+      const listing = await this.app.vault.adapter.list(pluginsDir);
       pluginIds = listing.folders
         .map((p) => p.split('/').pop() ?? '')
         .filter((n) => n.length > 0 && n !== 'personal-config-sync')
@@ -197,23 +238,25 @@ export class ConfigSyncSettingTab extends PluginSettingTab {
     }
     const current = new Set(this.plugin.settings.excludePlugins ?? []);
     for (const id of pluginIds) {
-      const row = container.createEl('label', { cls: 'personal-config-sync--plugin-row' });
-      const cb = row.createEl('input', { type: 'checkbox' });
+      const row = container.createDiv({ cls: 'personal-config-sync--plugin-row' });
+      const label = row.createEl('label', { cls: 'personal-config-sync--plugin-label' });
+      const cb = label.createEl('input', { type: 'checkbox' });
       cb.checked = current.has(id);
-      row.createSpan({ text: id });
+      label.createSpan({ text: id });
       if (current.has(id)) row.addClass('is-excluded');
-      cb.addEventListener('change', async () => {
+      cb.addEventListener('change', () => {
         const set = new Set(this.plugin.settings.excludePlugins ?? []);
         if (cb.checked) set.add(id); else set.delete(id);
         this.plugin.settings.excludePlugins = [...set];
         row.toggleClass('is-excluded', cb.checked);
-        await this.plugin.saveSettings();
+        // Explicitly void + catch: the listener returns void, so a floating promise is a review warning.
+        void this.plugin.saveSettings().catch(() => undefined);
       });
     }
   }
 
   private renderConflict(el: HTMLElement): void {
-    el.createEl('h3', { text: '冲突处理' });
+    new Setting(el).setName('冲突处理').setHeading();
 
     new Setting(el)
       .setName('冲突策略')
@@ -234,23 +277,26 @@ export class ConfigSyncSettingTab extends PluginSettingTab {
   }
 
   private renderActions(el: HTMLElement): void {
-    el.createEl('h3', { text: '操作' });
+    new Setting(el).setName('操作').setHeading();
 
     new Setting(el)
       .setName('立即同步')
       .setDesc(`上次同步：${this.plugin.settings.lastSyncAt ? new Date(this.plugin.settings.lastSyncAt).toLocaleString() : '从未'}。状态：${this.plugin.settings.lastSyncStatus || '—'}`)
       .addButton((b) =>
-        b.setButtonText('同步').setCta().onClick(async () => {
-          try {
-            const result = await this.plugin.syncNow();
-            new Notice(`配置同步完成：上传 ${result.uploaded}，下载 ${result.downloaded}，删除 ${result.deleted}，冲突 ${result.conflicts}`);
-            this.display();
-          } catch (e) {
-            new Notice(`配置同步失败：${(e as Error).message}`, 8000);
-            this.plugin.settings.lastSyncStatus = (e as Error).message;
-            await this.plugin.saveSettings();
-            this.display();
-          }
+        b.setButtonText('同步').setCta().onClick(() => {
+          void (async () => {
+            try {
+              const result = await this.plugin.syncNow();
+              new Notice(`配置同步完成：上传 ${result.uploaded}，下载 ${result.downloaded}，删除 ${result.deleted}，冲突 ${result.conflicts}`);
+              this.refresh();
+            } catch (e) {
+              const message = e instanceof Error ? e.message : String(e);
+              new Notice(`配置同步失败：${message}`, 8000);
+              this.plugin.settings.lastSyncStatus = message;
+              await this.plugin.saveSettings();
+              this.refresh();
+            }
+          })();
         }),
       );
 
@@ -258,24 +304,33 @@ export class ConfigSyncSettingTab extends PluginSettingTab {
       .setName('测试连接')
       .setDesc('先测服务器连通性 + WebDAV 端点认证，再同步。失败会给出具体原因（网络 / 认证 / URL 错误）。')
       .addButton((b) =>
-        b.setButtonText('测试连接').setCta().onClick(async () => {
-          const r = await this.plugin.testConnection();
-          if (r.allOk) {
-            new Notice(`✅ 连接正常：${r.reachable.detail}；${r.webdav.detail}`);
-          } else {
-            new Notice(`❌ 连接异常：${r.reachable.detail}；${r.webdav.detail}`, 10000);
-          }
+        b.setButtonText('测试连接').setCta().onClick(() => {
+          void (async () => {
+            const r = await this.plugin.testConnection();
+            if (r.allOk) {
+              new Notice(`✅ 连接正常：${r.reachable.detail}；${r.webdav.detail}`);
+            } else {
+              new Notice(`❌ 连接异常：${r.reachable.detail}；${r.webdav.detail}`, 10000);
+            }
+          })();
         }),
       );
 
     new Setting(el)
       .setName('重置为默认')
       .addButton((b) =>
-        b.setButtonText('重置').setWarning().onClick(async () => {
-          this.plugin.settings = { ...DEFAULT_SETTINGS, remoteConfigRoot: defaultRemoteRoot(this.app.vault.getName()) };
-          await this.plugin.saveSettings();
-          this.display();
+        b.setButtonText('重置').setDestructive().onClick(() => {
+          void (async () => {
+            this.plugin.settings = { ...DEFAULT_SETTINGS, remoteConfigRoot: defaultRemoteRoot(this.app.vault.getName()) };
+            await this.plugin.saveSettings();
+            this.refresh();
+          })();
         }),
       );
+  }
+
+  /** Re-render the tab (internal replacement for the deprecated `display()` call sites). */
+  private refresh(): void {
+    this.display();
   }
 }

@@ -26,7 +26,7 @@ export function normalizeExtension(input: string): string | null {
   e = e.replace(/^\*\./, '');
   e = e.replace(/^\.+/, '');
   if (e.length === 0) return null;
-  if (/[/\\\s*?\[\]{}]/.test(e)) return null;      // not an extension — a path or a wider glob
+  if (/[/\\\s*?[\]{}]/.test(e)) return null;      // not an extension — a path or a wider glob
   if (e.startsWith('.') || e.endsWith('.')) return null;
   return e;
 }

@@ -1,9 +1,9 @@
 {
   "id": "personal-config-sync",
-  "name": "Plugin Sync",
-  "version": "0.3.0",
+  "name": "Config Sync",
+  "version": "0.4.0",
   "minAppVersion": "1.4.0",
-  "description": "只同步 Obsidian 配置 (.obsidian/) 的 WebDAV 同步插件，独立于笔记内容同步。支持按插件/文件夹/文件/扩展名排除，默认全部配置同步，同步前自动做网络连通性测试。",
+  "description": "Sync only your vault's configuration folder over WebDAV, independent from notes-content sync. Per-plugin exclusion list, built-in safety rules for device-local files, diff3 conflict merge, and a pre-sync connectivity test.",
   "author": "rosswang",
   "authorUrl": "",
   "isDesktopOnly": false

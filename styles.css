@@ -1,5 +1,6 @@
-.personal-config-sync--wide {
-  width: 100% !important;
+/* No !important: out-specify Obsidian's default input width instead. */
+.setting-item-control .personal-config-sync--wide {
+  width: 100%;
   min-width: 280px;
 }
 

@@ -67,10 +67,14 @@ export default class ObsidianConfigSyncPlugin extends Plugin {
       void this.syncNow().catch(() => undefined);
     });
 
-    // Auto-sync: periodic + on any change inside .obsidian (config edits, plugin installs).
+    // Auto-sync: periodic + on any change inside the config folder (config edits, plugin installs).
+    // Vault#configDir is user-configurable — never hardcode '.obsidian'.
     this.updateAutoTimer();
     const onConfigChanged = debounce(() => void this.syncNow().catch(() => undefined), 8000, true);
-    const isConfigFile = (f: TAbstractFile) => f.path === '.obsidian' || f.path.startsWith('.obsidian/');
+    const isConfigFile = (f: TAbstractFile) => {
+      const dir = this.configDir();
+      return f.path === dir || f.path.startsWith(dir + '/');
+    };
     this.registerEvent(this.app.vault.on('modify', (f) => { if (isConfigFile(f)) onConfigChanged(); }));
     this.registerEvent(this.app.vault.on('create', (f) => { if (isConfigFile(f)) onConfigChanged(); }));
     this.registerEvent(this.app.vault.on('delete', (f) => { if (isConfigFile(f)) onConfigChanged(); }));
@@ -87,13 +91,20 @@ export default class ObsidianConfigSyncPlugin extends Plugin {
     if (this.autoTimer !== null) window.clearInterval(this.autoTimer);
   }
 
+  /** The vault's actual configuration folder (user-configurable; default '.obsidian'). */
+  configDir(): string {
+    return this.app.vault.configDir;
+  }
+
   async loadSettings(): Promise<void> {
-    const loaded = await this.loadData();
+    const loaded: unknown = await this.loadData();
     const defaults: ConfigSyncSettings = {
       ...DEFAULT_SETTINGS,
       remoteConfigRoot: defaultRemoteRoot(this.app.vault.getName()),
     };
-    this.settings = { ...defaults, ...loaded };
+    // loadData() returns `any`; narrow it before spreading so the merge stays type-safe.
+    const stored = (loaded !== null && typeof loaded === 'object') ? loaded as Partial<ConfigSyncSettings> : {};
+    this.settings = { ...defaults, ...stored };
   }
 
   async saveSettings(): Promise<void> {
@@ -186,7 +197,7 @@ export default class ObsidianConfigSyncPlugin extends Plugin {
       const report = await runSync({
         app: this.app,
         client,
-        configRoot: '.obsidian',
+        configRoot: this.configDir(),
         remoteRoot: this.remoteRoot(),
         rules,
         conflictStrategy: this.settings.conflictStrategy,
