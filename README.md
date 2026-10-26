@@ -11,7 +11,7 @@
 
 **版本：v0.4.2** · 插件 id：`personal-config-sync`
 
-与笔记内容同步（如 [nextcloud-sync-yanc](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc)）完全独立：两个插件各自在远端占一个目录，互不越界 —— 内容线只管笔记，本插件只管配置。
+通过webdav同步主要插件。
 
 ### 特性
 
@@ -128,7 +128,7 @@ Completely independent from notes-content sync (e.g. [nextcloud-sync-yanc](https
 
 ### Overview
 
-An Obsidian plugin that syncs **only the `.obsidian/` configuration folder** over WebDAV. It does not touch your notes.
+Sync the plugin via webdav, for example, jianguoyun, onedrive.
 
 ### Features
 
