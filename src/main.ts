@@ -7,7 +7,8 @@
 // see src/webdav/StandardWebDAVClient.ts.
 
 import { Plugin, Notice, TAbstractFile, debounce } from 'obsidian';
-import { ConfigSyncSettingTab, DEFAULT_SETTINGS, defaultRemoteRoot, type ConfigSyncSettings } from './settings';
+import { ConfigSyncSettingTab } from './settings';
+import { DEFAULT_SETTINGS, defaultRemoteRoot, type ConfigSyncSettings } from './settings-defaults';
 import { StandardWebDAVClient } from './webdav/StandardWebDAVClient';
 import { checkReachability, checkWebdavBase, basicAuthHeader } from './webdav/ConnectionTester';
 import { runSync, type SyncReport } from './sync/engine';

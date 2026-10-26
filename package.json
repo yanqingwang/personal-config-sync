@@ -1,6 +1,6 @@
 {
   "name": "personal-config-sync",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Obsidian plugin: sync only the .obsidian config folder over WebDAV, independent of notes-content sync.",
   "main": "main.js",
   "type": "module",

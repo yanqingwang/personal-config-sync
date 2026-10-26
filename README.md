@@ -9,7 +9,7 @@
 
 ## 中文
 
-**版本：v0.4.2** · 插件 id：`personal-config-sync`
+**版本：v0.4.3** · 插件 id：`personal-config-sync`
 
 通过webdav同步主要插件。
 
@@ -122,7 +122,7 @@ MIT
 
 ## English
 
-**Version: v0.4.2** · Plugin id: `personal-config-sync`
+**Version: v0.4.3** · Plugin id: `personal-config-sync`
 
 Completely independent from notes-content sync (e.g. [nextcloud-sync-yanc](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc)): each plugin owns its own remote folder and never crosses into the other's. The content plugin handles notes; this plugin handles configuration only.
 

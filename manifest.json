@@ -1,7 +1,7 @@
 {
   "id": "personal-config-sync",
   "name": "Config Sync with WebDAV",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "minAppVersion": "1.13.0",
   "description": "Sync only your vault's configuration folder over WebDAV, independent from notes-content sync. Per-plugin exclusion list, built-in safety rules for device-local files, diff3 conflict merge, and a pre-sync connectivity test.",
   "author": "rosswang",
