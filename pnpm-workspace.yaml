@@ -1,0 +1,5 @@
+# Build-script policy (pnpm 12 reads settings here, not in package.json).
+# esbuild's postinstall is REQUIRED: it downloads the native binary that node_modules/esbuild
+# runs. Without it, `pnpm run build` fails with ERR_PNPM_IGNORED_BUILDS.
+allowBuilds:
+  esbuild: true

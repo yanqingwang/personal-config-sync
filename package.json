@@ -10,7 +10,12 @@
     "typecheck": "tsc --noEmit",
     "test:filter": "esbuild tests/filter.test.ts --bundle --format=cjs --platform=node --outfile=/tmp/filter-test.js --log-level=error && node /tmp/filter-test.js"
   },
-  "keywords": ["obsidian", "webdav", "sync", "config"],
+  "keywords": [
+    "obsidian",
+    "webdav",
+    "sync",
+    "config"
+  ],
   "author": "rosswang",
   "license": "MIT",
   "dependencies": {
@@ -21,5 +26,6 @@
     "esbuild": "^0.20.0",
     "obsidian": "latest",
     "typescript": "^5.4.0"
-  }
+  },
+  "packageManager": "pnpm@12.3.4"
 }
