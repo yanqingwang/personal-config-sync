@@ -9,7 +9,7 @@
 
 ## 中文
 
-**版本：v0.4.1** · 插件 id：`personal-config-sync`
+**版本：v0.4.2** · 插件 id：`personal-config-sync`
 
 与笔记内容同步（如 [nextcloud-sync-yanc](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc)）完全独立：两个插件各自在远端占一个目录，互不越界 —— 内容线只管笔记，本插件只管配置。
 
@@ -122,7 +122,7 @@ MIT
 
 ## English
 
-**Version: v0.4.1** · Plugin id: `personal-config-sync`
+**Version: v0.4.2** · Plugin id: `personal-config-sync`
 
 Completely independent from notes-content sync (e.g. [nextcloud-sync-yanc](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc)): each plugin owns its own remote folder and never crosses into the other's. The content plugin handles notes; this plugin handles configuration only.
 

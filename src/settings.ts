@@ -214,7 +214,7 @@ export class ConfigSyncSettingTab extends PluginSettingTab {
         + '内置安全规则会自动排除设备本地文件（workspace.json、backlink.json 等），无需手动配置。',
     });
 
-    const container = el.createEl('div', { cls: 'personal-config-sync--plugin-list' });
+    const container = el.createDiv({ cls: 'personal-config-sync--plugin-list' });
     await this.renderPluginCheckboxes(container);
   }
 
