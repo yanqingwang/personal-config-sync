@@ -11,7 +11,7 @@ import { ConfigSyncSettingTab, DEFAULT_SETTINGS, defaultRemoteRoot, type ConfigS
 import { StandardWebDAVClient } from './webdav/StandardWebDAVClient';
 import { checkReachability, checkWebdavBase, basicAuthHeader } from './webdav/ConnectionTester';
 import { runSync, type SyncReport } from './sync/engine';
-import { effectiveRules, type SyncMode } from './sync/filter';
+import { effectiveRules } from './sync/filter';
 
 export interface ConnectionReport {
   reachable: { ok: boolean; detail: string };
@@ -180,12 +180,7 @@ export default class ObsidianConfigSyncPlugin extends Plugin {
       const client = this.buildClient();
 
       const rules = effectiveRules({
-        mode: this.settings.syncMode as SyncMode,
-        includeFolders: this.settings.includeFolders,
-        excludeFolders: this.settings.excludeFolders,
         excludePlugins: this.settings.excludePlugins ?? [],
-        excludeFiles: this.settings.excludeFiles,
-        excludeExtensions: this.settings.excludeExtensions,
       });
 
       const report = await runSync({

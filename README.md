@@ -2,14 +2,14 @@
 
 Obsidian 插件：**只同步 Obsidian 配置（`.obsidian/`）** 的 WebDAV 同步插件。
 
-> 插件名 **Plugin Sync**，id `obsidian-config-sync`。
+> 插件名 **Plugin Sync**，id `obsidian-config-sync`。只支持按插件粒度选择同步范围。
 
 与笔记内容同步（如 [nextcloud-sync-yanc](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc)）完全独立：
 两个插件各自在远端占一个目录，互不越界 —— 内容线只管笔记，本插件只管配置。
 
 - 默认预填**坚果云 (jianguoyun)** 的 WebDAV 地址，你只需填账号 + 应用密码。
-- 默认**全部配置同步**，但内置排除规则自动跳过设备本地文件。
-- 可按文件夹 / 文件 / 扩展名粒度配置排除，也可切到「白名单」只同步选中的文件夹。
+- 默认**全部插件同步**；同步范围只按插件粒度选择 —— checkbox 勾选某个插件 = 整个插件文件夹都不同步。
+- 内置安全规则自动排除设备本地文件（workspace.json、backlink.json、各插件 data.json 等），无需手动配置。
 - 文本配置（json/md/css）冲突走 diff3 三方合并；非文本冲突保留双方副本。
 - **同步前自动做网络连通性测试**，失败即给出具体原因（网络 / 认证 / URL 错误），不盲目开同步。
 

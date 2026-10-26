@@ -17,7 +17,7 @@
 import { App, Vault, TFile } from 'obsidian';
 import type { IWebDAVClient } from '../webdav/IWebDAVClient';
 import { NetworkError, RemoteRootMissingError, RemoteDirCreateError } from '../types';
-import { shouldSyncPath, effectiveRules, DEFAULT_EXCLUDED_FILES } from './filter';
+import { shouldSyncPath, effectiveRules } from './filter';
 
 export interface SyncReport {
   uploaded: number;

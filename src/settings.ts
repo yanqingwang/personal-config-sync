@@ -1,14 +1,15 @@
 // Plugin settings: defaults + the Obsidian Settings tab.
 //
-// The server URL is pre-filled with Jianguoyun (坚果云) WebDAV, which is the most common
-// plain-WebDAV target for Chinese Obsidian users. The user only has to supply their
-// credentials and pick a remote folder — everything else ships with sane defaults.
+// Deliberately minimal. The only sync-scope choice the user makes is PER PLUGIN: a checkbox list of
+// every installed plugin, tick = that plugin's whole folder is excluded from sync. Everything else
+// syncs by default (with a hidden built-in safety list that keeps device-local files out).
+//
+// The server URL ships pre-filled with a sane WebDAV default so users only supply credentials.
 
-import { App, PluginSettingTab, Setting, TFile, TFolder, Modal, setIcon, Notice } from 'obsidian';
+import { App, PluginSettingTab, Setting, Notice } from 'obsidian';
 import type ObsidianConfigSyncPlugin from './main';
-import type { SyncMode } from './sync/filter';
 
-/** Jianguoyun's WebDAV endpoint. Users must create an App Password (应用密码) in their account. */
+/** Jianguoyun's WebDAV endpoint (a common plain-WebDAV target; Nextcloud URLs also work as-is). */
 export const JIANGUOYUN_DEFAULT_URL = 'https://dav.jianguoyun.com/dav/';
 
 export interface ConfigSyncSettings {
@@ -23,18 +24,9 @@ export interface ConfigSyncSettings {
   /** Interval in minutes between periodic syncs; 0 = manual only. */
   autoSyncIntervalMinutes: number;
 
-  // ── Sync scope ──
-  syncMode: SyncMode;
-  /** Whitelist folders (used in 'whitelist' and 'exclude' modes). */
-  includeFolders: string[];
-  /** Excluded folders (used in 'all' and 'whitelist' modes). */
-  excludeFolders: string[];
-  /** Excluded PLUGINS (whole plugin folder). Checked against `.obsidian/plugins/<id>/`. */
+  // ── Sync scope (per-plugin only) ──
+  /** Plugin ids whose whole folder must NOT sync. Tick a plugin in the list = exclude it. */
   excludePlugins: string[];
-  /** Excluded file patterns (supports a single `*` wildcard). */
-  excludeFiles: string[];
-  /** Excluded extensions. */
-  excludeExtensions: string[];
 
   // ── Conflict handling ──
   /** 'merge' = diff3 three-way merge for text; 'keep-both' = save local + remote copies. */
@@ -53,12 +45,7 @@ export const DEFAULT_SETTINGS: ConfigSyncSettings = {
   networkTimeoutSeconds: 30,
   autoSyncIntervalMinutes: 0,
 
-  syncMode: 'all',
-  includeFolders: [],
-  excludeFolders: [],
   excludePlugins: [],
-  excludeFiles: [],
-  excludeExtensions: [],
 
   conflictStrategy: 'merge',
 
@@ -83,24 +70,24 @@ export class ConfigSyncSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl('h2', { text: 'WebDAV 配置同步' });
+    containerEl.createEl('h2', { text: 'Plugin Sync' });
 
     this.renderConnection(containerEl);
-    this.renderScope(containerEl);
+    this.renderPlugins(containerEl);
     this.renderConflict(containerEl);
     this.renderActions(containerEl);
   }
 
   private renderConnection(el: HTMLElement): void {
-    el.createEl('h3', { text: 'WebDAV 连接（坚果云已预填）' });
+    el.createEl('h3', { text: 'WebDAV 连接' });
     el.createEl('p', {
       cls: 'setting-item-description',
-      text: '服务器地址已预填坚果云。用户名是你的坚果云邮箱；密码请使用「应用密码」（坚果云网页 → 账户信息 → 安全选项 → 添加应用密码），不是登录密码。其他 WebDAV 服务商自行填写地址即可。',
+      text: '支持坚果云、Nextcloud 及任何标准 WebDAV 服务器。坚果云用户请填「应用密码」（坚果云网页 → 账户信息 → 安全选项 → 添加应用密码），不是登录密码。',
     });
 
     new Setting(el)
       .setName('服务器地址')
-      .setDesc('默认 https://dav.jianguoyun.com/dav/')
+      .setDesc('默认 https://dav.jianguoyun.com/dav/，Nextcloud 填 /remote.php/dav/files/<user>/')
       .addText((t) => {
         t.inputEl.addClass('obsidian-config-sync--wide');
         t.setPlaceholder('https://dav.jianguoyun.com/dav/')
@@ -113,7 +100,7 @@ export class ConfigSyncSettingTab extends PluginSettingTab {
 
     new Setting(el)
       .setName('用户名')
-      .setDesc('坚果云账号（邮箱）')
+      .setDesc('坚果云账号（邮箱）或 Nextcloud 用户名')
       .addText((t) =>
         t.setPlaceholder('you@example.com')
           .setValue(this.plugin.settings.username)
@@ -125,7 +112,7 @@ export class ConfigSyncSettingTab extends PluginSettingTab {
 
     new Setting(el)
       .setName('密码')
-      .setDesc('坚果云「应用密码」。密码只保存在本机 vault 的 data.json，不会被同步到远端。')
+      .setDesc('应用密码。只保存在本机 vault 的 data.json，不会被同步到远端。')
       .addText((t) => {
         t.inputEl.type = 'password';
         t.setPlaceholder('应用密码')
@@ -138,7 +125,7 @@ export class ConfigSyncSettingTab extends PluginSettingTab {
 
     new Setting(el)
       .setName('远端配置目录')
-      .setDesc('远端存放配置的文件夹，默认 <vault>-config。会独立于笔记内容目录，互不干扰。')
+      .setDesc('远端存放配置的文件夹，默认 <vault>-config。独立于笔记内容目录。')
       .addText((t) =>
         t.setPlaceholder(this.plugin.settings.remoteConfigRoot || defaultRemoteRoot(this.app.vault.getName()))
           .setValue(this.plugin.settings.remoteConfigRoot)
@@ -176,91 +163,52 @@ export class ConfigSyncSettingTab extends PluginSettingTab {
       });
   }
 
-  private renderScope(el: HTMLElement): void {
-    el.createEl('h3', { text: '同步范围（默认全部同步）' });
+  /**
+   * The ONLY sync-scope control: a checkbox list of every installed plugin.
+   * Tick = exclude that plugin's whole folder from sync. Unticked (default) = it syncs.
+   */
+  private async renderPlugins(el: HTMLElement): Promise<void> {
+    el.createEl('h3', { text: '同步范围（按插件）' });
     el.createEl('p', {
       cls: 'setting-item-description',
-      text: '默认同步 `.obsidian/` 下所有配置。以下文件因是设备本地状态而**永远不同步**：workspace.json、backlink.json、graph.json、各插件的 data.json / main.js / cache。你可以再排除更多。',
+      text: '默认所有插件都同步。**勾选某个插件 = 整个插件文件夹都不同步**（包括它的 data.json、main.js、状态文件）。\n'
+        + '内置安全规则会自动排除设备本地文件（workspace.json、backlink.json 等），无需手动配置。',
     });
 
-    new Setting(el)
-      .setName('同步范围模式')
-      .setDesc('全部：默认同步所有配置，只排除你列出的；白名单：只同步你选中的文件夹；反向排除：只同步被排除的那些。')
-      .addDropdown((d) => {
-        const modes: { value: SyncMode; label: string }[] = [
-          { value: 'all', label: '全部（默认）' },
-          { value: 'whitelist', label: '白名单（只同步选中）' },
-          { value: 'exclude', label: '反向（只同步排除项）' },
-        ];
-        for (const m of modes) d.addOption(m.value, m.label);
-        d.setValue(this.plugin.settings.syncMode).onChange(async (v) => {
-          this.plugin.settings.syncMode = v as SyncMode;
-          await this.plugin.saveSettings();
-          this.display();
-        });
-      });
+    const container = el.createEl('div', { cls: 'obsidian-config-sync--plugin-list' });
+    await this.renderPluginCheckboxes(container);
+  }
 
-    new Setting(el).setName('排除的文件夹（每行一个）').addTextArea((t) => {
-      t.setPlaceholder('如 .trash\nplugins/*/cache').setValue(this.plugin.settings.excludeFolders.join('\n'));
-      t.onChange(async (v) => {
-        this.plugin.settings.excludeFolders = v.split('\n').map((s) => s.trim()).filter(Boolean);
+  private async renderPluginCheckboxes(container: HTMLElement): Promise<void> {
+    container.empty();
+    let pluginIds: string[] = [];
+    try {
+      const listing = await this.app.vault.adapter.list('.obsidian/plugins');
+      pluginIds = listing.folders
+        .map((p) => p.split('/').pop() ?? '')
+        .filter((n) => n.length > 0 && n !== 'obsidian-config-sync')
+        .sort();
+    } catch {
+      pluginIds = [];
+    }
+    if (pluginIds.length === 0) {
+      container.createEl('p', { cls: 'setting-item-description', text: '未发现已安装插件。' });
+      return;
+    }
+    const current = new Set(this.plugin.settings.excludePlugins ?? []);
+    for (const id of pluginIds) {
+      const row = container.createEl('label', { cls: 'obsidian-config-sync--plugin-row' });
+      const cb = row.createEl('input', { type: 'checkbox' });
+      cb.checked = current.has(id);
+      row.createSpan({ text: id });
+      if (current.has(id)) row.addClass('is-excluded');
+      cb.addEventListener('change', async () => {
+        const set = new Set(this.plugin.settings.excludePlugins ?? []);
+        if (cb.checked) set.add(id); else set.delete(id);
+        this.plugin.settings.excludePlugins = [...set];
+        row.toggleClass('is-excluded', cb.checked);
         await this.plugin.saveSettings();
       });
-    });
-
-    new Setting(el).setName('排除的文件（每行一个，支持 * 通配）').addTextArea((t) => {
-      t.setPlaceholder('如 plugins/dataview/data.json').setValue(this.plugin.settings.excludeFiles.join('\n'));
-      t.onChange(async (v) => {
-        this.plugin.settings.excludeFiles = v.split('\n').map((s) => s.trim()).filter(Boolean);
-        await this.plugin.saveSettings();
-      });
-    });
-
-    new Setting(el)
-      .setName('排除的文件类型（逗号分隔）')
-      .addText((t) => {
-        t.setPlaceholder('如 tmp, lock').setValue(this.plugin.settings.excludeExtensions.join(', '));
-        t.onChange(async (v) => {
-          this.plugin.settings.excludeExtensions = v
-            .split(/[,;\s]+/)
-            .map((s) => s.trim().replace(/^\./, '').toLowerCase())
-            .filter(Boolean);
-          await this.plugin.saveSettings();
-        });
-      });
-
-    // ── Excluded plugins: checkbox list of every installed plugin ──
-    el.createEl('div', { cls: 'setting-item', text: '' });
-    el.createEl('h4', { text: '排除的插件（勾选后整个插件文件夹都不同步）' });
-    const pluginList = el.createEl('div', { cls: 'obsidian-config-sync--plugin-list' });
-    void this.renderPluginList(pluginList);
-
-    // Whitelist folder picker (only meaningful in 'whitelist' / 'exclude' modes).
-    new Setting(el)
-      .setName('白名单文件夹（同步范围内选中这些）')
-      .setDesc('在 whitelist 模式下只有这些文件夹会被同步。')
-      .addButton((b) => {
-        b.setButtonText('添加文件夹').setCta().onClick(async () => {
-          const picked = await pickFolder(this.app, this.app.vault.getRoot(), (p) => p);
-          if (picked && !this.plugin.settings.includeFolders.includes(picked)) {
-            this.plugin.settings.includeFolders.push(picked);
-            await this.plugin.saveSettings();
-            this.display();
-          }
-        });
-      });
-    const list = this.plugin.settings.includeFolders;
-    if (list.length > 0) {
-      const wrap = el.createEl('div', { cls: 'obsidian-config-sync--folder-list' });
-      for (const f of list) {
-        new Setting(wrap)
-          .setName(f)
-          .addButton((b) => b.setButtonText('移除').setWarning().onClick(async () => {
-            this.plugin.settings.includeFolders = this.plugin.settings.includeFolders.filter((x) => x !== f);
-            await this.plugin.saveSettings();
-            this.display();
-          }));
-      }
     }
   }
 
@@ -283,40 +231,6 @@ export class ConfigSyncSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         });
       });
-  }
-
-  /** Render a checkbox list of every installed plugin; toggling writes excludePlugins. */
-  private async renderPluginList(container: HTMLElement): Promise<void> {
-    container.empty();
-    let pluginIds: string[] = [];
-    try {
-      const listing = await this.app.vault.adapter.list('.obsidian/plugins');
-      pluginIds = listing.folders
-        .map((p) => p.split('/').pop() ?? '')
-        .filter((n) => n.length > 0 && n !== 'obsidian-config-sync')
-        .sort();
-    } catch {
-      pluginIds = [];
-    }
-    if (pluginIds.length === 0) {
-      container.createEl('p', { cls: 'setting-item-description', text: '未发现已安装插件。' });
-      return;
-    }
-    const current = new Set(this.plugin.settings.excludePlugins ?? []);
-    for (const id of pluginIds) {
-      const row = container.createEl('div', { cls: 'obsidian-config-sync--plugin-row' });
-      const cb = row.createEl('input', { type: 'checkbox' });
-      cb.checked = current.has(id);
-      row.createSpan({ text: id });
-      if (current.has(id)) row.addClass('is-excluded');
-      cb.addEventListener('change', async () => {
-        const set = new Set(this.plugin.settings.excludePlugins ?? []);
-        if (cb.checked) set.add(id); else set.delete(id);
-        this.plugin.settings.excludePlugins = [...set];
-        row.toggleClass('is-excluded', cb.checked);
-        await this.plugin.saveSettings();
-      });
-    }
   }
 
   private renderActions(el: HTMLElement): void {
@@ -342,7 +256,7 @@ export class ConfigSyncSettingTab extends PluginSettingTab {
 
     new Setting(el)
       .setName('测试连接')
-      .setDesc('先测服务器连通性 + WebDAV 端点认证，再同步。失败会给出具体原因（网络/认证/URL 错误）。')
+      .setDesc('先测服务器连通性 + WebDAV 端点认证，再同步。失败会给出具体原因（网络 / 认证 / URL 错误）。')
       .addButton((b) =>
         b.setButtonText('测试连接').setCta().onClick(async () => {
           const r = await this.plugin.testConnection();
@@ -363,65 +277,5 @@ export class ConfigSyncSettingTab extends PluginSettingTab {
           this.display();
         }),
       );
-  }
-}
-
-// ── Folder picker (Obsidian Suggester-style modal, no extra deps) ──────────
-function pickFolder(app: App, root: TFolder, onChange: (p: string) => string): Promise<string | null> {
-  return new Promise((resolve) => {
-    const modal = new FolderPickerModal(app, root, onChange, resolve);
-    modal.open();
-  });
-}
-
-class FolderPickerModal extends Modal {
-  private query = '';
-  private result: string | null = null;
-
-  constructor(
-    app: App,
-    private root: TFolder,
-    private _onChange: (p: string) => string,
-    private done: (v: string | null) => void,
-  ) {
-    super(app);
-  }
-
-  onOpen(): void {
-    const { contentEl } = this;
-    contentEl.createEl('h3', { text: '选择要同步的文件夹' });
-    const input = contentEl.createEl('input', { type: 'text', placeholder: '输入过滤…', cls: 'obsidian-config-sync--wide' });
-    const list = contentEl.createEl('div', { cls: 'obsidian-config-sync--folder-list' });
-
-    const render = () => {
-      list.empty();
-      const q = this.query.toLowerCase();
-      const walk = (folder: TFolder, prefix: string) => {
-        for (const child of folder.children) {
-          if (!(child instanceof TFolder)) continue;
-          const path = prefix + child.name;
-          if (q.length === 0 || path.toLowerCase().includes(q)) {
-            const row = list.createEl('div', { cls: 'obsidian-config-sync--folder-row' });
-            row.createSpan({ text: path });
-            row.createEl('button', { text: '选择', cls: 'mod-cta' }).onclick = () => {
-              this.result = path;
-              this.close();
-            };
-          }
-          walk(child, path + '/');
-        }
-      };
-      walk(this.root, '');
-    };
-
-    input.oninput = () => {
-      this.query = input.value;
-      render();
-    };
-    render();
-  }
-
-  onClose(): void {
-    this.done(this.result);
   }
 }
