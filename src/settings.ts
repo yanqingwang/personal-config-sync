@@ -89,7 +89,7 @@ export class ConfigSyncSettingTab extends PluginSettingTab {
       .setName('服务器地址')
       .setDesc('默认 https://dav.jianguoyun.com/dav/，Nextcloud 填 /remote.php/dav/files/<user>/')
       .addText((t) => {
-        t.inputEl.addClass('obsidian-config-sync--wide');
+        t.inputEl.addClass('personal-config-sync--wide');
         t.setPlaceholder('https://dav.jianguoyun.com/dav/')
           .setValue(this.plugin.settings.serverUrl)
           .onChange(async (v) => {
@@ -175,7 +175,7 @@ export class ConfigSyncSettingTab extends PluginSettingTab {
         + '内置安全规则会自动排除设备本地文件（workspace.json、backlink.json 等），无需手动配置。',
     });
 
-    const container = el.createEl('div', { cls: 'obsidian-config-sync--plugin-list' });
+    const container = el.createEl('div', { cls: 'personal-config-sync--plugin-list' });
     await this.renderPluginCheckboxes(container);
   }
 
@@ -186,7 +186,7 @@ export class ConfigSyncSettingTab extends PluginSettingTab {
       const listing = await this.app.vault.adapter.list('.obsidian/plugins');
       pluginIds = listing.folders
         .map((p) => p.split('/').pop() ?? '')
-        .filter((n) => n.length > 0 && n !== 'obsidian-config-sync')
+        .filter((n) => n.length > 0 && n !== 'personal-config-sync')
         .sort();
     } catch {
       pluginIds = [];
@@ -197,7 +197,7 @@ export class ConfigSyncSettingTab extends PluginSettingTab {
     }
     const current = new Set(this.plugin.settings.excludePlugins ?? []);
     for (const id of pluginIds) {
-      const row = container.createEl('label', { cls: 'obsidian-config-sync--plugin-row' });
+      const row = container.createEl('label', { cls: 'personal-config-sync--plugin-row' });
       const cb = row.createEl('input', { type: 'checkbox' });
       cb.checked = current.has(id);
       row.createSpan({ text: id });

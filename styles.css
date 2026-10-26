@@ -1,9 +1,9 @@
-.obsidian-config-sync--wide {
+.personal-config-sync--wide {
   width: 100% !important;
   min-width: 280px;
 }
 
-.obsidian-config-sync--folder-list {
+.personal-config-sync--folder-list {
   max-height: 240px;
   overflow-y: auto;
   margin: 8px 0;
@@ -12,7 +12,7 @@
   border-radius: 4px;
 }
 
-.obsidian-config-sync--folder-row {
+.personal-config-sync--folder-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -23,18 +23,18 @@
   cursor: pointer;
 }
 
-.obsidian-config-sync--folder-row:hover {
+.personal-config-sync--folder-row:hover {
   background: var(--background-modifier-hover);
 }
 
-.obsidian-config-sync--folder-row button {
+.personal-config-sync--folder-row button {
   margin-left: 8px;
   padding: 2px 8px;
   font-size: 11px;
 }
 
 /* Excluded plugins checkbox list */
-.obsidian-config-sync--plugin-list {
+.personal-config-sync--plugin-list {
   max-height: 260px;
   overflow-y: auto;
   margin: 6px 0;
@@ -43,7 +43,7 @@
   border-radius: 4px;
 }
 
-.obsidian-config-sync--plugin-row {
+.personal-config-sync--plugin-row {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -53,16 +53,16 @@
   font-size: 12px;
 }
 
-.obsidian-config-sync--plugin-row:hover {
+.personal-config-sync--plugin-row:hover {
   background: var(--background-modifier-hover);
 }
 
-.obsidian-config-sync--plugin-row.is-excluded {
+.personal-config-sync--plugin-row.is-excluded {
   color: var(--text-muted);
   text-decoration: line-through;
 }
 
-.obsidian-config-sync--plugin-row input[type="checkbox"] {
+.personal-config-sync--plugin-row input[type="checkbox"] {
   margin: 0;
   flex: 0 0 auto;
 }

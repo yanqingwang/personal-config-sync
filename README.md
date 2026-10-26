@@ -9,7 +9,7 @@
 
 ## 中文
 
-**版本：v0.3.0** · 插件 id：`obsidian-config-sync`
+**版本：v0.3.0** · 插件 id：`personal-config-sync`
 
 与笔记内容同步（如 [nextcloud-sync-yanc](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc)）完全独立：两个插件各自在远端占一个目录，互不越界 —— 内容线只管笔记，本插件只管配置。
 
@@ -32,7 +32,7 @@ pnpm build          # 生成 main.js（esbuild 内联 node-diff3，无运行时�
 把 `main.js`、`manifest.json`、`styles.css` 三个文件放进：
 
 ```
-<你的Vault>/.obsidian/plugins/obsidian-config-sync/
+<你的Vault>/.obsidian/plugins/personal-config-sync/
 ```
 
 然后在 Obsidian「设置 → 第三方插件 → Plugin Sync」启用。
@@ -122,7 +122,7 @@ MIT
 
 ## English
 
-**Version: v0.3.0** · Plugin id: `obsidian-config-sync`
+**Version: v0.3.0** · Plugin id: `personal-config-sync`
 
 Completely independent from notes-content sync (e.g. [nextcloud-sync-yanc](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc)): each plugin owns its own remote folder and never crosses into the other's. The content plugin handles notes; this plugin handles configuration only.
 
@@ -149,7 +149,7 @@ pnpm build          # produces main.js (esbuild inlines node-diff3; no runtime d
 Place the three files `main.js`, `manifest.json`, `styles.css` into:
 
 ```
-<your-vault>/.obsidian/plugins/obsidian-config-sync/
+<your-vault>/.obsidian/plugins/personal-config-sync/
 ```
 
 Then enable **Plugin Sync** in Obsidian: **Settings → Community plugins**.

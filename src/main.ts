@@ -1,4 +1,4 @@
-// obsidian-config-sync — sync only the Obsidian configuration (.obsidian/) over WebDAV.
+// personal-config-sync — sync only the Obsidian configuration (.obsidian/) over WebDAV.
 //
 // Independent from the notes-content sync plugin (nextcloud-sync-yanc): the two plugins
 // each own a remote folder and never touch each other's content.
